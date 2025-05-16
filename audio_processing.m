@@ -197,7 +197,7 @@ function [h, w] = getFilterResponse(type, cutoff, fs, window_type)
 end
 
 function filtered = applyLMSFilter(noisy, desired, mu, filterOrder)
-    % 应用LMS自适应滤波器
+    % 应用自定义LMS自适应滤波器，基于博客实现
     % noisy: 带噪声信号
     % desired: 期望信号（若为空，则自动生成参考信号）
     % mu: 步长参数（若为空，则使用默认值0.01）
@@ -211,26 +211,105 @@ function filtered = applyLMSFilter(noisy, desired, mu, filterOrder)
         mu = 0.01;
     end
     
+    N = length(noisy);
+    
+    % 根据噪声类型创建更好的参考信号
     if nargin < 2 || isempty(desired)
-        % 使用延迟的噪声信号作为参考
-        delay = 5;
-        N = length(noisy);
-        desired = zeros(size(noisy));
-        if delay < N
-            desired(delay+1:end) = noisy(1:end-delay);
+        % 尝试检测噪声特性
+        Y = fft(noisy);
+        P = abs(Y/N);
+        P1 = P(1:floor(N/2)+1);
+        freqIndex = find(P1 == max(P1));
+        
+        if freqIndex > 1 && freqIndex < 50 % 可能是单频干扰
+            % 创建相位适配的正弦参考
+            fs = 44100; % 假设采样率
+            f = (freqIndex-1) * (fs/N);
+            t = (0:N-1)'/fs;
+            desired = sin(2*pi*f*t);
+            
+        else
+            % 使用多重延迟方法创建参考信号
+            delays = [1, 2, 4, 8, 16];
+            delayedSignals = zeros(N, length(delays));
+            
+            for i = 1:length(delays)
+                d = delays(i);
+                if d < N
+                    delayedSignals(d+1:end, i) = noisy(1:end-d);
+                end
+            end
+            
+            desired = mean(delayedSignals, 2);
         end
     end
     
-    % 匹配长度
-    minLen = min(length(noisy), length(desired));
-    noisy = noisy(1:minLen);
-    desired = desired(1:minLen);
+    % 实现标准LMS算法
+    x = noisy;           % 输入信号
+    d = desired;         % 期望信号
     
-    % 创建LMS滤波器
-    lms_filter = dsp.LMSFilter(filterOrder, 'StepSize', mu);
+    % 初始化权重向量和输出
+    w = zeros(filterOrder, 1);  % 权重向量
+    y = zeros(N, 1);     % 输出信号
+    e = zeros(N, 1);     % 误差信号
     
-    % 应用滤波器
-    filtered = step(lms_filter, noisy, desired);
+    % LMS算法迭代实现
+    for n = filterOrder:N
+        % 提取输入向量
+        x_n = x(n:-1:n-filterOrder+1);
+        
+        % 计算滤波器输出
+        y(n) = w' * x_n;
+        
+        % 计算误差
+        e(n) = d(n) - y(n);
+        
+        % 更新权重向量（标准LMS权重更新方程）
+        w = w + mu * e(n) * x_n;
+    end
+    
+    % 实现标准化LMS（NLMS）变种以提高收敛性能
+    mu_nlms = 0.1;  % NLMS的步长因子
+    w_nlms = zeros(filterOrder, 1);
+    y_nlms = zeros(N, 1);
+    e_nlms = zeros(N, 1);
+    
+    for n = filterOrder:N
+        x_n = x(n:-1:n-filterOrder+1);
+        
+        % 计算NLMS输出
+        y_nlms(n) = w_nlms' * x_n;
+        
+        % 计算误差
+        e_nlms(n) = d(n) - y_nlms(n);
+        
+        % 计算归一化步长
+        norm_factor = x_n' * x_n;
+        if norm_factor > 0
+            adaptive_mu = mu_nlms / (norm_factor + 1e-10);
+        else
+            adaptive_mu = mu_nlms;
+        end
+        
+        % 更新NLMS权重
+        w_nlms = w_nlms + adaptive_mu * e_nlms(n) * x_n;
+    end
+    
+    % 结合标准LMS和NLMS的结果
+    alpha = 0.7;  % 混合因子 - 偏向NLMS
+    combined = alpha * e_nlms + (1-alpha) * e;
+    
+    % 重建滤波后的信号
+    filtered = noisy - combined;
+    
+    % 应用后处理平滑
+    b = ones(5,1)/5;
+    filtered = filter(b, 1, filtered);
+    
+    % 归一化输出
+    if max(abs(filtered)) > 0
+        filtered = filtered / max(abs(filtered));
+    end
 end
 
 function denoised = applyWaveletDenoising(noisy, wavelet, level)

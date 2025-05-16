@@ -255,9 +255,25 @@ classdef AudioProcessingApp < matlab.apps.AppBase
             
             switch algorithm
                 case 'LMS算法'
-                    % 自适应LMS滤波，使用合适的步长和滤波器阶数
-                    app.adaptiveAudio = audio_processing('applyLMSFilter', app.noisyAudio, [], 0.01, 32);
-                    titleStr = 'LMS自适应滤波结果';
+                    % 根据噪声类型调整LMS参数
+                    if strcmp(app.currentNoiseType, '高斯白噪声')
+                        filterOrder = 64;  % 白噪声需要较高阶
+                        mu = 0.008;        % 适中的步长
+                    elseif strcmp(app.currentNoiseType, '窄带噪声(1000-2000Hz)')
+                        filterOrder = 48;  % 中等阶数
+                        mu = 0.01;         % 标准步长
+                    elseif strcmp(app.currentNoiseType, '单频干扰(1500Hz)')
+                        filterOrder = 32;  % 单频较低阶数
+                        mu = 0.02;         % 较大步长加快收敛
+                    else
+                        filterOrder = 32;
+                        mu = 0.01;
+                    end
+                    
+                    % 调用自定义LMS算法
+                    app.adaptiveAudio = audio_processing('applyLMSFilter', app.noisyAudio, [], mu, filterOrder);
+                    
+                    titleStr = sprintf('LMS自适应滤波 (阶数:%d, 步长:%.4f)', filterOrder, mu);
                     
                 case '小波去噪'
                     % 应用小波去噪
