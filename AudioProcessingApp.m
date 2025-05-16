@@ -142,6 +142,19 @@ classdef AudioProcessingApp < matlab.apps.AppBase
             filterType = app.FilterTypeDropDown.Value;
             windowType = app.WindowTypeDropDown.Value;
             
+            % 检查是否为专用滤波器，使用专用窗函数
+            if contains(filterType, '专用滤波器')
+                switch filterType
+                    case '白噪声专用滤波器'
+                        windowType = '汉明窗';
+                    case '窄带噪声专用滤波器'
+                        windowType = '布莱克曼窗';
+                    case '单频干扰专用滤波器'
+                        % 陷波滤波器不需要窗函数
+                        windowType = '';
+                end
+            end
+            
             switch filterType
                 case '低通滤波'
                     % 根据噪声类型确定截止频率
@@ -370,6 +383,25 @@ classdef AudioProcessingApp < matlab.apps.AppBase
         function StopAdaptiveButtonPushed(app, event)
             clear sound;
         end
+        
+        % 添加滤波器类型改变的回调函数
+        function FilterTypeChanged(app, event)
+            filterType = app.FilterTypeDropDown.Value;
+            
+            % 更新窗函数下拉框的值
+            switch filterType
+                case '白噪声专用滤波器'
+                    app.WindowTypeDropDown.Value = '汉明窗';
+                    app.WindowTypeDropDown.Enable = 'off'; % 锁定窗函数选择
+                case '窄带噪声专用滤波器'
+                    app.WindowTypeDropDown.Value = '布莱克曼窗';
+                    app.WindowTypeDropDown.Enable = 'off'; % 锁定窗函数选择
+                case '单频干扰专用滤波器'
+                    app.WindowTypeDropDown.Enable = 'off'; % 锁定窗函数选择
+                otherwise
+                    app.WindowTypeDropDown.Enable = 'on';  % 解锁窗函数选择
+            end
+        end
     end
 
     % 应用初始化和构建
@@ -467,6 +499,7 @@ classdef AudioProcessingApp < matlab.apps.AppBase
                                            '白噪声专用滤波器', '窄带噪声专用滤波器', '单频干扰专用滤波器'};
             app.FilterTypeDropDown.Position = [20, 600, 150, 30];
             app.FilterTypeDropDown.Value = '低通滤波';
+            app.FilterTypeDropDown.ValueChangedFcn = createCallbackFcn(app, @FilterTypeChanged, true);
             
             app.WindowTypeDropDown = uidropdown(app.FilterPanel);
             app.WindowTypeDropDown.Items = {'巴特利特窗', '汉宁窗', '汉明窗', '布莱克曼窗', '凯泽窗'};
