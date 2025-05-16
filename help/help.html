@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>音频处理应用程序帮助文档</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 20px;
+            color: #333;
+        }
+        h1, h2, h3 {
+            color: #0066cc;
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        code {
+            background-color: #f5f5f5;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: Consolas, monospace;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h1>音频处理应用程序使用说明</h1>
+    
+    <div class="section">
+        <h2>1. 简介</h2>
+        <p>音频处理应用程序是一个用于处理音频信号的工具，可以添加不同类型的噪声并应用各种滤波算法进行去噪。</p>
+    </div>
+    
+    <div class="section">
+        <h2>2. 界面概述</h2>
+        <p>应用程序分为四个主要选项卡：</p>
+        <ul>
+            <li><strong>原始音频</strong> - 加载和查看原始音频信号</li>
+            <li><strong>带噪音频</strong> - 给音频添加噪声</li>
+            <li><strong>滤波处理</strong> - 应用FIR滤波器进行处理</li>
+            <li><strong>自适应滤波</strong> - 应用自适应滤波算法</li>
+        </ul>
+    </div>
+    
+    <div class="section">
+        <h2>3. 基本操作流程</h2>
+        <ol>
+            <li>在"原始音频"选项卡中加载音频文件（.wav或.mp3格式）</li>
+            <li>切换到"带噪音频"选项卡，选择噪声类型并添加噪声</li>
+            <li>在"滤波处理"选项卡中，选择滤波器类型和窗口类型进行滤波</li>
+            <li>在"自适应滤波"选项卡中，选择自适应算法进行更高级的处理</li>
+        </ol>
+    </div>
+    
+    <div class="section">
+        <h2>4. 功能详解</h2>
+        
+        <h3>4.1 噪声类型</h3>
+        <ul>
+            <li><strong>高斯白噪声</strong> - 在整个频带上均匀分布的随机噪声</li>
+            <li><strong>窄带噪声(1000-2000Hz)</strong> - 集中在特定频率范围内的噪声</li>
+            <li><strong>单频干扰(1500Hz)</strong> - 特定频率(1500Hz)的正弦干扰</li>
+        </ul>
+        
+        <h3>4.2 滤波器类型</h3>
+        <ul>
+            <li><strong>低通滤波</strong> - 允许低频信号通过，抑制高频信号</li>
+            <li><strong>高通滤波</strong> - 允许高频信号通过，抑制低频信号</li>
+            <li><strong>带阻滤波</strong> - 抑制特定频带的信号</li>
+        </ul>
+        
+        <h3>4.3 窗函数类型</h3>
+        <ul>
+            <li><strong>巴特利特窗</strong> - 一种简单的三角窗</li>
+            <li><strong>汉宁窗</strong> - 一种改进的余弦窗</li>
+            <li><strong>汉明窗</strong> - 改进的汉宁窗，旁瓣更低</li>
+            <li><strong>布莱克曼窗</strong> - 旁瓣衰减更快的窗</li>
+            <li><strong>凯泽窗</strong> - 可调参数的窗函数</li>
+        </ul>
+        
+        <h3>4.4 自适应算法</h3>
+        <ul>
+            <li><strong>LMS算法</strong> - 最小均方算法，自适应估计信号</li>
+            <li><strong>小波去噪</strong> - 基于小波变换的信号去噪</li>
+            <li><strong>陷波滤波</strong> - 专门去除特定频率干扰</li>
+        </ul>
+    </div>
+    
+    <div class="section">
+        <h2>5. 性能考虑</h2>
+        <p>处理大型音频文件可能需要较长时间。应用程序会自动将音频限制在10秒内以提高性能。</p>
+    </div>
+    
+    <div class="section">
+        <h2>6. 故障排除</h2>
+        <table>
+            <tr>
+                <th>问题</th>
+                <th>可能原因</th>
+                <th>解决方案</th>
+            </tr>
+            <tr>
+                <td>加载音频失败</td>
+                <td>文件格式不支持</td>
+                <td>确保使用.wav或.mp3格式</td>
+            </tr>
+            <tr>
+                <td>滤波效果不明显</td>
+                <td>滤波器参数不合适</td>
+                <td>尝试调整滤波器类型或滤波器频率设置</td>
+            </tr>
+            <tr>
+                <td>应用运行缓慢</td>
+                <td>音频文件过大</td>
+                <td>使用较短的音频片段测试</td>
+            </tr>
+        </table>
+    </div>
+</body>
+</html>
