@@ -266,27 +266,61 @@ classdef AudioProcessingApp < matlab.apps.AppBase
             
             algorithm = app.AlgorithmDropDown.Value;
             
+            % 开始计时以测量处理时间
+            tic;
+            
             switch algorithm
-                case 'LMS算法'
-                    % 根据噪声类型调整LMS参数
+                case '自适应滤波算法'
+                    % 根据噪声类型选择最佳自适应滤波参数
                     if strcmp(app.currentNoiseType, '高斯白噪声')
-                        filterOrder = 64;  % 白噪声需要较高阶
-                        mu = 0.008;        % 适中的步长
+                        filterOrder = 64;
+                        % 对于VSSLMS，提供步长范围而非单值
+                        mu = [0.02, 0.0001];  % [最大步长, 最小步长]
+                        algoType = 'vsslms';  % 使用变步长LMS
                     elseif strcmp(app.currentNoiseType, '窄带噪声(1000-2000Hz)')
-                        filterOrder = 48;  % 中等阶数
-                        mu = 0.01;         % 标准步长
+                        filterOrder = 48;
+                        mu = 0.1;
+                        algoType = 'nlms';    % 使用归一化LMS
                     elseif strcmp(app.currentNoiseType, '单频干扰(1500Hz)')
-                        filterOrder = 32;  % 单频较低阶数
-                        mu = 0.02;         % 较大步长加快收敛
-                    else
                         filterOrder = 32;
+                        mu = 0.5;             % 对于RLS，这是遗忘因子
+                        algoType = 'rls';     % 单频干扰用RLS效果最好
+                    else
+                        filterOrder = 48;
                         mu = 0.01;
+                        algoType = 'auto';    % 自动选择
                     end
                     
-                    % 调用自定义LMS算法
-                    app.adaptiveAudio = audio_processing('applyLMSFilter', app.noisyAudio, [], mu, filterOrder);
+                    % 调用增强的自适应滤波算法
+                    app.adaptiveAudio = audio_processing('applyAdaptiveFilter', app.noisyAudio, [], mu, filterOrder, algoType);
                     
-                    titleStr = sprintf('LMS自适应滤波 (阶数:%d, 步长:%.4f)', filterOrder, mu);
+                    % 计算处理时间
+                    processingTime = toc;
+                    
+                    % 计算信噪比改善
+                    if ~isempty(app.originalAudio)
+                        minLen = min([length(app.originalAudio), length(app.noisyAudio), length(app.adaptiveAudio)]);
+                        orig = app.originalAudio(1:minLen);
+                        noisy = app.noisyAudio(1:minLen);
+                        filtered = app.adaptiveAudio(1:minLen);
+                        
+                        % 计算原始信噪比
+                        noiseOnly = noisy - orig;
+                        origSNR = 10*log10(mean(orig.^2)/mean(noiseOnly.^2));
+                        
+                        % 计算处理后信噪比
+                        errorAfter = filtered - orig;
+                        filteredSNR = 10*log10(mean(orig.^2)/mean(errorAfter.^2));
+                        
+                        % 信噪比改善
+                        snrImprovement = filteredSNR - origSNR;
+                        
+                        titleStr = sprintf('高级自适应滤波 (%s, 阶数:%d, 处理时间:%.2fs, SNR改善:%.2fdB)', ...
+                            upper(algoType), filterOrder, processingTime, snrImprovement);
+                    else
+                        titleStr = sprintf('高级自适应滤波 (%s, 阶数:%d, 处理时间:%.2fs)', ...
+                            upper(algoType), filterOrder, processingTime);
+                    end
                     
                 case '小波去噪'
                     % 应用小波去噪
@@ -535,9 +569,9 @@ classdef AudioProcessingApp < matlab.apps.AppBase
             app.AdaptivePanel.Position = [10, 10, 960, 640];
             
             app.AlgorithmDropDown = uidropdown(app.AdaptivePanel);
-            app.AlgorithmDropDown.Items = {'LMS算法', '小波去噪', '陷波滤波'};
+            app.AlgorithmDropDown.Items = {'自适应滤波算法', '小波去噪', '陷波滤波'};
             app.AlgorithmDropDown.Position = [20, 600, 200, 30];
-            app.AlgorithmDropDown.Value = 'LMS算法';
+            app.AlgorithmDropDown.Value = '自适应滤波算法';
             
             app.AdaptiveButton = uibutton(app.AdaptivePanel, 'push');
             app.AdaptiveButton.Position = [230, 600, 100, 30];
