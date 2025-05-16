@@ -196,98 +196,28 @@ function [h, w] = getFilterResponse(type, cutoff, fs, window_type)
     [h, w] = freqz(b, 1, 1024);
 end
 
-function filtered = applyLMSFilter(noisy, desired, mu, filterOrder, noiseType, fs)
-    % 应用LMS自适应滤波器，增强版
+function filtered = applyLMSFilter(noisy, desired, mu, filterOrder)
+    % 应用LMS自适应滤波器
     % noisy: 带噪声信号
     % desired: 期望信号（若为空，则自动生成参考信号）
-    % mu: 步长参数
-    % filterOrder: 滤波器长度
-    % noiseType: 噪声类型，可为 'white', 'narrowband', 'sinusoidal' 或 []
-    % fs: 采样频率 (当noiseType不为空时必需)
+    % mu: 步长参数（若为空，则使用默认值0.01）
+    % filterOrder: 滤波器长度（若为空，则使用默认值32）
     
-    % 默认参数处理
-    if nargin < 6 || isempty(fs)
-        fs = 44100; % 默认采样率
+    if nargin < 4 || isempty(filterOrder)
+        filterOrder = 32;
     end
     
-    if nargin < 5
-        noiseType = [];
+    if nargin < 3 || isempty(mu)
+        mu = 0.01;
     end
     
-    % 根据噪声类型优化滤波器参数
-    if isempty(mu)
-        % 根据噪声类型自动设置步长
-        if strcmp(noiseType, 'white')
-            mu = 0.005; % 白噪声需要较小步长
-        elseif strcmp(noiseType, 'narrowband') 
-            mu = 0.01;  % 窄带噪声可用较大步长
-        elseif strcmp(noiseType, 'sinusoidal')
-            mu = 0.02;  % 单频干扰可用更大步长
-        else
-            mu = 0.008; % 默认值
-        end
-    end
-    
-    if isempty(filterOrder)
-        % 根据噪声类型自动设置滤波器阶数
-        if strcmp(noiseType, 'white')
-            filterOrder = 128;  % 白噪声需要较高阶
-        elseif strcmp(noiseType, 'narrowband')
-            filterOrder = 64;   % 窄带噪声需要中等阶数
-        elseif strcmp(noiseType, 'sinusoidal')
-            filterOrder = 32;   % 单频干扰可用较低阶
-        else
-            filterOrder = 64;   % 默认值
-        end
-    end
-    
-    % 创建更好的参考信号
     if nargin < 2 || isempty(desired)
-        if strcmp(noiseType, 'sinusoidal')
-            % 对于单频干扰，生成更精确的参考信号
-            N = length(noisy);
-            t = (0:N-1)/fs;
-            sinFreq = 1500; % 默认频率，可以通过频谱分析更精确地确定
-            
-            % 简单的频率估计 - 实际应用中可以更复杂
-            Y = fft(noisy);
-            P2 = abs(Y);
-            P1 = P2(1:floor(length(noisy)/2)+1);
-            f = fs*(0:(length(noisy)/2))/length(noisy);
-            [~, idx] = max(P1(2:end)); % 忽略直流分量
-            estFreq = f(idx+1);  % 估计频率
-            
-            if estFreq > 100 && estFreq < fs/2-100
-                sinFreq = estFreq;
-            end
-            
-            % 创建正弦参考
-            desired = sin(2*pi*sinFreq*t)';
-            
-        elseif strcmp(noiseType, 'narrowband')
-            % 窄带噪声使用带通滤波的参考
-            wn = randn(size(noisy));
-            nyquist = fs/2;
-            [b, a] = butter(4, [1000/nyquist, 2000/nyquist], 'bandpass');
-            desired = filter(b, a, wn);
-            
-            % 归一化
-            desired = desired / max(abs(desired));
-            
-        else
-            % 改进的延迟线方法 - 使用多个延迟并平均
-            delay_base = 5;
-            num_delays = 3;
-            delayed_signals = zeros(length(noisy), num_delays);
-            
-            for i = 1:num_delays
-                d = delay_base * i;
-                if d < length(noisy)
-                    delayed_signals(d+1:end, i) = noisy(1:end-d);
-                end
-            end
-            
-            desired = mean(delayed_signals, 2);
+        % 使用延迟的噪声信号作为参考
+        delay = 5;
+        N = length(noisy);
+        desired = zeros(size(noisy));
+        if delay < N
+            desired(delay+1:end) = noisy(1:end-delay);
         end
     end
     
@@ -296,21 +226,11 @@ function filtered = applyLMSFilter(noisy, desired, mu, filterOrder, noiseType, f
     noisy = noisy(1:minLen);
     desired = desired(1:minLen);
     
-    % 使用标准化LMS算法以提高性能
-    nlms_filter = dsp.LMSFilter(filterOrder, 'StepSize', mu, ...
-                               'Method', 'Normalized LMS', ...
-                               'WeightsOutputPort', true, ...
-                               'LeakageFactor', 0.9999);  % 轻微的权重泄漏以增加稳定性
+    % 创建LMS滤波器
+    lms_filter = dsp.LMSFilter(filterOrder, 'StepSize', mu);
     
-    % 应用滤波器进行信号处理
-    [filtered, weights] = step(nlms_filter, noisy, desired);
-    
-    % 可选：进行后处理以改善结果
-    % 例如，应用一个低通滤波器去除可能引入的高频噪声
-    if strcmp(noiseType, 'white')
-        [b, a] = butter(4, 4000/(fs/2), 'low');
-        filtered = filtfilt(b, a, filtered); % 零相位滤波
-    end
+    % 应用滤波器
+    filtered = step(lms_filter, noisy, desired);
 end
 
 function denoised = applyWaveletDenoising(noisy, wavelet, level)
