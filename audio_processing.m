@@ -7,37 +7,70 @@ function [varargout] = audio_processing(operation, varargin)
     % varargin: 根据操作类型传递给各子函数的参数
     % varargout: 根据操作类型返回的输出参数
     
+    % 检查输入参数数量
+    if nargin < 1
+        error('输入参数不足: 至少需要提供一个操作类型参数。使用方法: audio_processing(operation, [其他参数...])');
+    end
+    
     % 确定要返回的输出参数数量
     num_outputs = nargout;
     
     % 根据操作类型调用相应的子函数
     switch operation
         case 'addWhiteNoise'
+            % 检查此操作所需的参数数量
+            if length(varargin) < 2
+                error('addWhiteNoise操作需要至少2个参数: audio_processing(''addWhiteNoise'', signal, SNR_dB)');
+            end
             out = cell(1, num_outputs);
             [out{:}] = addWhiteNoise(varargin{:});
         case 'addNarrowbandNoise'
+            % 检查此操作所需的参数数量
+            if length(varargin) < 5
+                error('addNarrowbandNoise操作需要至少5个参数: audio_processing(''addNarrowbandNoise'', signal, fs, f_low, f_high, SNR_dB)');
+            end
             out = cell(1, num_outputs);
             [out{:}] = addNarrowbandNoise(varargin{:});
         case 'addSinusoidalNoise'
+            if length(varargin) < 4
+                error('addSinusoidalNoise操作需要至少4个参数: audio_processing(''addSinusoidalNoise'', signal, fs, freq, amplitude)');
+            end
             out = cell(1, num_outputs);
             [out{:}] = addSinusoidalNoise(varargin{:});
         case 'applyFIRFilter'
+            % 更新参数检查，允许可选的filter order参数
+            if length(varargin) < 5
+                error('applyFIRFilter操作需要至少5个参数: audio_processing(''applyFIRFilter'', signal, fs, type, cutoff, window_type, [filterOrder])');
+            end
             out = cell(1, num_outputs);
             [out{:}] = applyFIRFilter(varargin{:});
         case 'getFilterResponse'
+            % 更新参数检查，允许可选的filter order参数
+            if length(varargin) < 4
+                error('getFilterResponse操作需要至少4个参数: audio_processing(''getFilterResponse'', type, cutoff, fs, window_type, [filterOrder])');
+            end
             out = cell(1, max(num_outputs, 2)); % 至少需要2个输出
             [out{:}] = getFilterResponse(varargin{:});
         case 'applyLMSFilter'
+            if length(varargin) < 1
+                error('applyLMSFilter操作需要至少1个参数: audio_processing(''applyLMSFilter'', noisy, [desired], [mu], [filterOrder])');
+            end
             out = cell(1, num_outputs);
             [out{:}] = applyLMSFilter(varargin{:});
         case 'applyWaveletDenoising'
+            if length(varargin) < 3
+                error('applyWaveletDenoising操作需要至少3个参数: audio_processing(''applyWaveletDenoising'', noisy, wavelet, level)');
+            end
             out = cell(1, num_outputs);
             [out{:}] = applyWaveletDenoising(varargin{:});
         case 'applyNotchFilter'
+            if length(varargin) < 4
+                error('applyNotchFilter操作需要至少4个参数: audio_processing(''applyNotchFilter'', signal, fs, notchFreq, Q)');
+            end
             out = cell(1, num_outputs);
             [out{:}] = applyNotchFilter(varargin{:});
         otherwise
-            error('未知的操作类型: %s', operation);
+            error('未知的操作类型: %s。有效的操作类型包括: ''addWhiteNoise'', ''addNarrowbandNoise'', ''addSinusoidalNoise'', ''applyFIRFilter'', ''getFilterResponse'', ''applyLMSFilter'', ''applyWaveletDenoising'', ''applyNotchFilter''', operation);
     end
     
     % 将子函数的输出赋值给输出参数
@@ -117,27 +150,41 @@ function noisy = addSinusoidalNoise(signal, fs, freq, amplitude)
     end
 end
 
-function filtered = applyFIRFilter(signal, fs, type, cutoff, window_type)
+function filtered = applyFIRFilter(signal, fs, type, cutoff, window_type, filterOrder)
     % 使用窗函数法应用FIR滤波器
     % type: 'low'(低通), 'high'(高通), 或 'stop'(带阻)
     % cutoff: 低通/高通的截止频率，或带阻的[低频 高频]
     % window_type: '巴特利特窗', '汉宁窗', '汉明窗', '布莱克曼窗', 或 '凯泽窗'
+    % filterOrder: 可选，滤波器阶数（默认为50，上限为150）
     
     % 滤波器阶数（带阻滤波器应为偶数）
-    order = 100;
+    if nargin < 6 || isempty(filterOrder)
+        filterOrder = 50; % 使用较低的默认阶数
+    else
+        % 限制滤波器阶数范围，防止过高阶数导致显示问题
+        filterOrder = min(max(filterOrder, 10), 150); 
+    end
+    
+    % 确保带阻滤波器使用偶数阶
+    if strcmp(type, 'stop') && mod(filterOrder, 2) == 1
+        filterOrder = filterOrder + 1;
+    end
     
     % 创建窗
     switch window_type
         case '巴特利特窗'
-            win = bartlett(order+1);
+            win = bartlett(filterOrder+1);
         case '汉宁窗'
-            win = hann(order+1);
+            win = hann(filterOrder+1);
         case '汉明窗'
-            win = hamming(order+1);
+            win = hamming(filterOrder+1);
         case '布莱克曼窗'
-            win = blackman(order+1);
+            win = blackman(filterOrder+1);
         case '凯泽窗'
-            win = kaiser(order+1, 5); % Beta = 5
+            win = kaiser(filterOrder+1, 5); % Beta = 5
+        otherwise
+            % 如果窗函数不明确，默认使用汉明窗
+            win = hamming(filterOrder+1);
     end
     
     % 设计滤波器
@@ -145,37 +192,66 @@ function filtered = applyFIRFilter(signal, fs, type, cutoff, window_type)
     switch type
         case 'low'
             cutoff_norm = cutoff/nyquist;
-            b = fir1(order, cutoff_norm, 'low', win);
+            b = fir1(filterOrder, cutoff_norm, 'low', win);
         case 'high'
             cutoff_norm = cutoff/nyquist;
-            b = fir1(order, cutoff_norm, 'high', win);
+            b = fir1(filterOrder, cutoff_norm, 'high', win);
         case 'stop'
             cutoff_norm = cutoff/nyquist;
-            b = fir1(order, cutoff_norm, 'stop', win);
+            b = fir1(filterOrder, cutoff_norm, 'stop', win);
     end
     
-    % 应用滤波器
-    filtered = filter(b, 1, signal);
+    % 计算群延迟（大约为滤波器阶数的一半）
+    groupDelay = filterOrder / 2;
+    
+    % 使用filtfilt替代filter以消除相位延迟（零相位滤波）
+    filtered = filtfilt(b, 1, signal);
+    
+    % 确保输出信号有合理的幅度
+    if max(abs(filtered)) < 0.01 && max(abs(signal)) > 0.01
+        % 如果滤波后信号幅度太小，恢复到与原始信号相似的幅度
+        scale_factor = max(abs(signal)) / max(abs(filtered));
+        filtered = filtered * scale_factor * 0.8; % 稍微降低以避免削波
+    end
+    
+    % 归一化以防止削波
+    if max(abs(filtered)) > 1
+        filtered = filtered / max(abs(filtered));
+    end
 end
 
-function [h, w] = getFilterResponse(type, cutoff, fs, window_type)
+function [h, w] = getFilterResponse(type, cutoff, fs, window_type, filterOrder)
     % 计算滤波器频率响应
     % 返回幅度响应h和频率w
+    % filterOrder: 可选，滤波器阶数（默认为50，上限为150）
     
-    order = 100;
+    if nargin < 5 || isempty(filterOrder)
+        filterOrder = 50; % 使用较低的默认阶数
+    else
+        % 限制滤波器阶数范围
+        filterOrder = min(max(filterOrder, 10), 150);
+    end
+    
+    % 确保带阻滤波器使用偶数阶
+    if strcmp(type, 'stop') && mod(filterOrder, 2) == 1
+        filterOrder = filterOrder + 1;
+    end
     
     % 创建窗
     switch window_type
         case '巴特利特窗'
-            win = bartlett(order+1);
+            win = bartlett(filterOrder+1);
         case '汉宁窗'
-            win = hann(order+1);
+            win = hann(filterOrder+1);
         case '汉明窗'
-            win = hamming(order+1);
+            win = hamming(filterOrder+1);
         case '布莱克曼窗'
-            win = blackman(order+1);
+            win = blackman(filterOrder+1);
         case '凯泽窗'
-            win = kaiser(order+1, 5); % Beta = 5
+            win = kaiser(filterOrder+1, 5); % Beta = 5
+        otherwise
+            % 如果窗函数不明确，默认使用汉明窗
+            win = hamming(filterOrder+1);
     end
     
     % 设计滤波器
@@ -183,13 +259,13 @@ function [h, w] = getFilterResponse(type, cutoff, fs, window_type)
     switch type
         case 'low'
             cutoff_norm = cutoff/nyquist;
-            b = fir1(order, cutoff_norm, 'low', win);
+            b = fir1(filterOrder, cutoff_norm, 'low', win);
         case 'high'
             cutoff_norm = cutoff/nyquist;
-            b = fir1(order, cutoff_norm, 'high', win);
+            b = fir1(filterOrder, cutoff_norm, 'high', win);
         case 'stop'
             cutoff_norm = cutoff/nyquist;
-            b = fir1(order, cutoff_norm, 'stop', win);
+            b = fir1(filterOrder, cutoff_norm, 'stop', win);
     end
     
     % 计算频率响应

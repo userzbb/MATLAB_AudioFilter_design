@@ -30,12 +30,18 @@ if ~isempty(missing_toolboxes)
     disp(missing_toolboxes);
 end
 
+% 添加当前脚本所在目录到MATLAB路径，以确保AudioProcessingApp可被找到
+% 获取当前脚本所在目录
+script_dir = fileparts(mfilename('fullpath'));
+% 添加该目录到MATLAB路径
+addpath(script_dir);
+% 打印信息 (用于确认路径已添加)
+fprintf('信息: 已将目录 "%s" 添加到MATLAB路径。\n', script_dir);
+
 % 启动应用程序
 fprintf('正在启动音频处理应用程序...\n');
-try
+
+    % 尝试启动应用程序
     app = AudioProcessingApp;
     fprintf('应用程序已成功启动!\n');
-catch e
-    fprintf('启动应用程序时出错: %s\n', e.message);
-    rethrow(e);
-end
+
