@@ -403,26 +403,78 @@ classdef AudioProcessingApp < matlab.apps.AppBase
             end
             
             % 绘制滤波后的音频
-            plotAudio(app, app.filteredAudio, app.FilteredTimeAxes, app.FilteredFreqAxes);
-            
-            % 绘制滤波器频率响应
-            if ~exist('h', 'var') || ~exist('w', 'var')
-                % 如果还没有计算频率响应，则调用函数计算
-                fType = getFIRTypeString(filterType);
-                [h, w] = audio_processing('getFilterResponse', fType, cutoffFreq, app.fs, windowType, filterOrder);
+            try
+                % 确保绘图句柄有效
+                if ~isempty(app.filteredAudio) && isvalid(app.FilteredTimeAxes) && isvalid(app.FilteredFreqAxes)
+                    plotAudio(app, app.filteredAudio, app.FilteredTimeAxes, app.FilteredFreqAxes);
+                else
+                    warning('无法绘制滤波后的音频: 数据或图形句柄无效');
+                end
+            catch e
+                warning('绘制音频时出错: %s', e.message);
             end
             
-            % 绘制频率响应
-            plot(app.FilterResponseAxes, w*app.fs/(2*pi), 20*log10(abs(h)));
-            app.FilterResponseAxes.XLabel.String = '频率 (Hz)';
-            app.FilterResponseAxes.YLabel.String = '幅度 (dB)';
-            app.FilterResponseAxes.Title.String = [filterType, ' ', designType, ' FIR滤波器响应'];
-            
-            % 调整Y轴范围
-            if contains(filterType, '带阻')
-                app.FilterResponseAxes.YLim = [-80, 5];
-            else
-                app.FilterResponseAxes.YLim = [-100, 10];
+            % 绘制滤波器频率响应
+            try
+                if ~exist('h', 'var') || ~exist('w', 'var')
+                    % 如果还没有计算频率响应，则调用函数计算
+                    if ~exist('fType', 'var')
+                        % 如果fType还未定义，根据filterType直接设置
+                        switch filterType
+                            case '低通'
+                                fType = 'low';
+                            case '高通'
+                                fType = 'high';
+                            case '带通'
+                                fType = 'bandpass';
+                            case '带阻'
+                                fType = 'stop';
+                            otherwise
+                                fType = 'low'; % 默认为低通
+                        end
+                    end
+                    
+                    % 直接使用audio_processing函数获取频率响应
+                    try
+                        [h, w] = audio_processing('getFilterResponse', fType, cutoffFreq, app.fs, windowType, filterOrder);
+                    catch responseError
+                        warning('获取滤波器响应时出错: %s', responseError.message);
+                        return;
+                    end
+                end
+                
+                % 确保响应数据有效
+                if ~exist('h', 'var') || ~exist('w', 'var') || isempty(h) || isempty(w)
+                    warning('滤波器响应数据无效');
+                    return;
+                end
+                
+                % 移除对figure和axes的直接调用，直接使用UIAxes对象进行绘图
+                cla(app.FilterResponseAxes);  % 清除当前轴
+                
+                % 直接在UIAxes中绘制，不要触发figure创建
+                semilogx(app.FilterResponseAxes, w*app.fs/(2*pi), 20*log10(abs(h)), 'LineWidth', 1.5);
+               %% grid(app.FilterResponseAxes, 'on');
+                
+                % 设置坐标轴标签
+                xlabel(app.FilterResponseAxes, '频率 (Hz)');
+                ylabel(app.FilterResponseAxes, '幅度 (dB)');
+                title(app.FilterResponseAxes, [filterType, ' ', designType, ' FIR滤波器响应']);
+                
+                % 调整X轴范围以更好地显示频率响应
+                xlim(app.FilterResponseAxes, [20, app.fs/2]);
+                
+                % 调整Y轴范围
+                if contains(filterType, '带阻')
+                    ylim(app.FilterResponseAxes, [-80, 5]);
+                else
+                    ylim(app.FilterResponseAxes, [-100, 10]);
+                end
+                
+                % 强制刷新图形
+                drawnow;
+            catch plotError
+                warning('绘制滤波器响应时出错: %s', plotError.message);
             end
         end
         
@@ -459,7 +511,7 @@ classdef AudioProcessingApp < matlab.apps.AppBase
                 case '窄带噪声(1000-2000Hz)'
                     % 窄带噪声最适合带阻滤波器
                     filterType = '带阻';
-                    cutoffFreq = [950 2050];  % 稍宽于噪声带宽
+                    cutoffFreq = [1500 1800];  % 稍宽于噪声带宽
                     filterOrder = 80;          % 带阻需要较高阶数提供陡峭的过渡带
                     windowType = '布莱克曼窗'; % 布莱克曼窗提供更高的阻带衰减
                     
@@ -933,8 +985,84 @@ classdef AudioProcessingApp < matlab.apps.AppBase
                     case '窄带噪声(1000-2000Hz)'
                         app.FilterDesignDropDown.Value = '等波纹法';
                     case '单频干扰(1500Hz)'
-                        app.FilterDesignDropDown.Value = '频率采样法';
+                        app.FilterDesignDropDown.Value = '窗函数法';
                 end
+            end
+        end
+        
+        % IIR滤波器噪声类型改变回调
+        function IIRNoiseTypeChanged(app, event)
+            % 默认值
+            passRipple = 1;   % 通带波纹(dB)
+            stopAtten = 60;   % 阻带衰减(dB)
+            
+            noiseType = app.IIRNoiseTypeDropDown.Value;
+            
+            % 根据预设类型调整界面
+            if strcmp(noiseType, '自定义')
+                app.IIRFilterTypeDropDown.Enable = 'on';
+                app.IIRDesignDropDown.Enable = 'on';
+                app.IIROrderEdit.Enable = 'on';
+                app.IIRCutoffEdit.Enable = 'on';
+                app.IIRRippleEdit.Enable = 'on';
+                app.IIRAttenuationEdit.Enable = 'on';
+            else
+                app.IIRFilterTypeDropDown.Enable = 'off';
+                app.IIRDesignDropDown.Enable = 'off';
+                app.IIROrderEdit.Enable = 'off';
+                app.IIRCutoffEdit.Enable = 'off';
+                app.IIRRippleEdit.Enable = 'off';
+                app.IIRAttenuationEdit.Enable = 'off';
+                
+                % 自动设置滤波器参数
+                [designType, cutoffFreq, filterOrder, passRipple, stopAtten] = getNoiseSpecificIIRParams(app, noiseType);
+                
+                % 更新UI显示
+                app.IIRDesignDropDown.Value = designType;
+                app.IIROrderEdit.Value = filterOrder;
+                
+                % 显示截止频率
+                if isscalar(cutoffFreq)
+                    app.IIRCutoffEdit.Value = num2str(cutoffFreq);
+                else
+                    app.IIRCutoffEdit.Value = [num2str(cutoffFreq(1)), ', ', num2str(cutoffFreq(2))];
+                end
+                
+                % 临时保存当前的ValueChangedFcn
+                oldFcn = app.IIRFilterTypeDropDown.ValueChangedFcn;
+                
+                % 暂时移除ValueChangedFcn以避免触发回调
+                app.IIRFilterTypeDropDown.ValueChangedFcn = [];
+                
+                % 根据噪声类型自动选择最佳滤波器类型
+                switch noiseType
+                    case '高斯白噪声'
+                        app.IIRFilterTypeDropDown.Value = '巴特沃斯';
+                    case '窄带噪声(1000-2000Hz)'
+                        app.IIRFilterTypeDropDown.Value = '切比雪夫II型';
+                    case '单频干扰(1500Hz)'
+                        app.IIRFilterTypeDropDown.Value = '切比雪夫I型';
+                end
+                
+                % 手动更新UI状态
+                filterType = app.IIRFilterTypeDropDown.Value;
+                switch filterType
+                    case '巴特沃斯'
+                        app.IIRRippleEdit.Enable = 'off';
+                        app.IIRAttenuationEdit.Enable = 'off';
+                    case '切比雪夫I型'
+                        app.IIRRippleEdit.Enable = 'on';
+                        app.IIRAttenuationEdit.Enable = 'off';
+                    case '切比雪夫II型'
+                        app.IIRRippleEdit.Enable = 'off';
+                        app.IIRAttenuationEdit.Enable = 'on';
+                    case '椭圆'
+                        app.IIRRippleEdit.Enable = 'on';
+                        app.IIRAttenuationEdit.Enable = 'on';
+                end
+                
+                % 恢复原始的ValueChangedFcn
+                app.IIRFilterTypeDropDown.ValueChangedFcn = oldFcn;
             end
         end
     end
@@ -1114,7 +1242,7 @@ classdef AudioProcessingApp < matlab.apps.AppBase
             app.IIRFilterTypeDropDown.Items = {'巴特沃斯', '切比雪夫I型', '切比雪夫II型', '椭圆'};
             app.IIRFilterTypeDropDown.Position = [20, 600, 120, 30];
             app.IIRFilterTypeDropDown.Value = '巴特沃斯';
-            app.IIRFilterTypeDropDown.ValueChangedFcn = createCallbackFcn(app, @IIRFilterTypeChanged, true);
+           %%  app.IIRFilterTypeDropDown.ValueChangedFcn = createCallbackFcn(app, @IIRFilterTypeChanged, true);
             
             app.IIRDesignDropDown = uidropdown(app.IIRPanel);
             app.IIRDesignDropDown.Items = {'低通', '高通', '带通', '带阻'};

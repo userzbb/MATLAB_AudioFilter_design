@@ -152,12 +152,12 @@ end
 
 function filtered = applyFIRFilter(signal, fs, type, cutoff, window_type, filterOrder)
     % 使用窗函数法应用FIR滤波器
-    % type: 'low'(低通), 'high'(高通), 或 'stop'(带阻)
-    % cutoff: 低通/高通的截止频率，或带阻的[低频 高频]
+    % type: 'low'(低通), 'high'(高通), 'bandpass'(带通), 或 'stop'(带阻)
+    % cutoff: 低通/高通的截止频率，或带通/带阻的[低频 高频]
     % window_type: '巴特利特窗', '汉宁窗', '汉明窗', '布莱克曼窗', 或 '凯泽窗'
     % filterOrder: 可选，滤波器阶数（默认为50，上限为150）
     
-    % 滤波器阶数（带阻滤波器应为偶数）
+    % 滤波器阶数（带阻和带通滤波器应为偶数）
     if nargin < 6 || isempty(filterOrder)
         filterOrder = 50; % 使用较低的默认阶数
     else
@@ -165,8 +165,8 @@ function filtered = applyFIRFilter(signal, fs, type, cutoff, window_type, filter
         filterOrder = min(max(filterOrder, 10), 150); 
     end
     
-    % 确保带阻滤波器使用偶数阶
-    if strcmp(type, 'stop') && mod(filterOrder, 2) == 1
+    % 确保带阻和带通滤波器使用偶数阶
+    if (strcmp(type, 'stop') || strcmp(type, 'bandpass')) && mod(filterOrder, 2) == 1
         filterOrder = filterOrder + 1;
     end
     
@@ -196,9 +196,19 @@ function filtered = applyFIRFilter(signal, fs, type, cutoff, window_type, filter
         case 'high'
             cutoff_norm = cutoff/nyquist;
             b = fir1(filterOrder, cutoff_norm, 'high', win);
+        case 'bandpass'
+            % 添加带通滤波器设计
+            if ~isscalar(cutoff) && length(cutoff) == 2
+                cutoff_norm = cutoff/nyquist;
+                b = fir1(filterOrder, cutoff_norm, 'bandpass', win);
+            else
+                error('带通滤波器需要两个截止频率 [f_low, f_high]');
+            end
         case 'stop'
             cutoff_norm = cutoff/nyquist;
             b = fir1(filterOrder, cutoff_norm, 'stop', win);
+        otherwise
+            error('不支持的滤波器类型: %s。支持的类型包括: ''low'', ''high'', ''bandpass'', ''stop''', type);
     end
     
     % 计算群延迟（大约为滤波器阶数的一半）
@@ -232,8 +242,8 @@ function [h, w] = getFilterResponse(type, cutoff, fs, window_type, filterOrder)
         filterOrder = min(max(filterOrder, 10), 150);
     end
     
-    % 确保带阻滤波器使用偶数阶
-    if strcmp(type, 'stop') && mod(filterOrder, 2) == 1
+    % 确保带阻和带通滤波器使用偶数阶
+    if (strcmp(type, 'stop') || strcmp(type, 'bandpass')) && mod(filterOrder, 2) == 1
         filterOrder = filterOrder + 1;
     end
     
@@ -263,9 +273,19 @@ function [h, w] = getFilterResponse(type, cutoff, fs, window_type, filterOrder)
         case 'high'
             cutoff_norm = cutoff/nyquist;
             b = fir1(filterOrder, cutoff_norm, 'high', win);
+        case 'bandpass'
+            % 添加带通滤波器响应计算
+            if ~isscalar(cutoff) && length(cutoff) == 2
+                cutoff_norm = cutoff/nyquist;
+                b = fir1(filterOrder, cutoff_norm, 'bandpass', win);
+            else
+                error('带通滤波器需要两个截止频率 [f_low, f_high]');
+            end
         case 'stop'
             cutoff_norm = cutoff/nyquist;
             b = fir1(filterOrder, cutoff_norm, 'stop', win);
+        otherwise
+            error('不支持的滤波器类型: %s。支持的类型包括: ''low'', ''high'', ''bandpass'', ''stop''', type);
     end
     
     % 计算频率响应
