@@ -29,10 +29,16 @@ classdef AudioProcessingApp < matlab.apps.AppBase
         NoiseTimeAxes      matlab.ui.control.UIAxes
         NoiseFreqAxes      matlab.ui.control.UIAxes
         
-        % FIR滤波器面板
+        % FIR滤波器面板 - 更新为更完整的设计界面
         FilterPanel        matlab.ui.container.Panel
         FilterTypeDropDown matlab.ui.control.DropDown
+        FilterDesignDropDown matlab.ui.control.DropDown
+        FilterOrderEdit     matlab.ui.control.NumericEditField
+        FilterCutoffEdit    matlab.ui.control.EditField
+        FilterRippleEdit    matlab.ui.control.NumericEditField
+        FilterAttenuationEdit matlab.ui.control.NumericEditField
         WindowTypeDropDown matlab.ui.control.DropDown
+        FilterNoiseTypeDropDown matlab.ui.control.DropDown
         FilterButton       matlab.ui.control.Button
         FilterResponseAxes matlab.ui.control.UIAxes
         FilteredTimeAxes   matlab.ui.control.UIAxes
@@ -150,92 +156,323 @@ classdef AudioProcessingApp < matlab.apps.AppBase
             plotAudio(app, app.noisyAudio, app.NoiseTimeAxes, app.NoiseFreqAxes);
         end
         
-        % 应用滤波器的方法
+        % 应用滤波器的方法 - 重新设计以支持更复杂的FIR滤波器设计
         function applyFilter(app)
             if isempty(app.noisyAudio)
                 uialert(app.UIFigure, '请先向音频添加噪声。', '无噪声音频');
                 return;
             end
             
+            designType = app.FilterDesignDropDown.Value;
             filterType = app.FilterTypeDropDown.Value;
             windowType = app.WindowTypeDropDown.Value;
+            filterOrder = app.FilterOrderEdit.Value;
             
-            % 根据噪声类型选择合适的滤波器阶数
-            if strcmp(app.currentNoiseType, '高斯白噪声')
-                filterOrder = 50;  % 白噪声需要中等阶数
-            elseif strcmp(app.currentNoiseType, '窄带噪声(1000-2000Hz)')
-                filterOrder = 80;  % 窄带噪声需要较高阶数以获得更陡峭的过渡带
-            elseif strcmp(app.currentNoiseType, '单频干扰(1500Hz)')
-                filterOrder = 40;  % 单频干扰较简单，较低阶数即可
-            else
-                filterOrder = 50;  % 默认中等阶数
-            end
+            % 确保滤波器阶数在合理范围内
+            filterOrder = min(max(filterOrder, 10), 150);
+            app.FilterOrderEdit.Value = filterOrder;
             
-            % 检查是否为专用滤波器，使用专用窗函数
-            if contains(filterType, '专用滤波器')
-                switch filterType
-                    case '白噪声专用滤波器'
-                        windowType = '汉明窗';
-                    case '窄带噪声专用滤波器'
-                        windowType = '布莱克曼窗';
-                        filterOrder = 100;  % 窄带噪声专用滤波器使用较高阶数
-                    case '单频干扰专用滤波器'
-                        % 陷波滤波器不需要窗函数
-                        windowType = '';
+            % 获取噪声类型预设滤波器
+            if strcmp(app.FilterNoiseTypeDropDown.Value, '自定义')
+                % 从UI控件获取参数
+                cutoffStr = app.FilterCutoffEdit.Value;
+                passRipple = app.FilterRippleEdit.Value;
+                stopAtten = app.FilterAttenuationEdit.Value;
+                
+                % 解析截止频率字符串
+                if contains(cutoffStr, ',') || contains(cutoffStr, ' ')
+                    % 带通或带阻滤波器有两个截止频率
+                    cutoffParts = strsplit(strrep(cutoffStr, ',', ' '));
+                    cutoffFreq = [str2double(cutoffParts{1}), str2double(cutoffParts{2})];
+                else
+                    % 低通或高通滤波器只有一个截止频率
+                    cutoffFreq = str2double(cutoffStr);
                 end
+            else
+                % 预设噪声特定滤波器
+                [filterType, cutoffFreq, filterOrder, windowType, passRipple, stopAtten] = getNoiseSpecificFIRParams(app, app.FilterNoiseTypeDropDown.Value);
+                app.FilterOrderEdit.Value = filterOrder;
             end
             
-            switch filterType
-                case '低通滤波'
-                    % 根据噪声类型确定截止频率
-                    if strcmp(app.currentNoiseType, '高斯白噪声')
-                        cutoff = 4000; % 白噪声的示例截止频率
-                    elseif strcmp(app.currentNoiseType, '窄带噪声(1000-2000Hz)')
-                        cutoff = 900; % 低于噪声频带
-                    else % 单频干扰
-                        cutoff = 1400; % 低于1500Hz干扰
+            % 根据设计方法选择不同的滤波器设计函数
+            switch designType
+                case '窗函数法'
+                    % 转换滤波器类型为audio_processing函数支持的格式
+                    switch filterType
+                        case '低通'
+                            fType = 'low';
+                        case '高通'
+                            fType = 'high';
+                        case '带通'
+                            fType = 'bandpass';
+                        case '带阻'
+                            fType = 'stop';
                     end
-                    app.filteredAudio = audio_processing('applyFIRFilter', app.noisyAudio, app.fs, 'low', cutoff, windowType, filterOrder);
                     
-                case '高通滤波'
-                    % 作为演示，使用高通滤波器
-                    cutoff = 2100; % 高于噪声频率
-                    app.filteredAudio = audio_processing('applyFIRFilter', app.noisyAudio, app.fs, 'high', cutoff, windowType, filterOrder);
-                    
-                case '带阻滤波'
-                    if strcmp(app.currentNoiseType, '窄带噪声(1000-2000Hz)')
-                        f1 = 950; f2 = 2050; % 略宽于噪声频带
-                    else % 单频干扰
-                        f1 = 1450; f2 = 1550; % 围绕1500Hz
+                    if strcmp(fType, 'bandpass') && isscalar(cutoffFreq)
+                        uialert(app.UIFigure, '带通滤波器需要两个截止频率，格式：freq1, freq2', '参数错误');
+                        return;
                     end
-                    app.filteredAudio = audio_processing('applyFIRFilter', app.noisyAudio, app.fs, 'stop', [f1 f2], windowType, filterOrder);
                     
-                case '白噪声专用滤波器'
-                    % 为白噪声设计的优化滤波器 - 使用低通滤波
-                    % 语音信号大部分能量集中在4kHz以下
-                    cutoff = 3500; % 略低于标准低通以提供更好的噪声抑制
-                    app.filteredAudio = audio_processing('applyFIRFilter', app.noisyAudio, app.fs, 'low', cutoff, '汉明窗', 60);
-                    
-                case '窄带噪声专用滤波器'
-                    % 为1000-2000Hz窄带噪声设计的专用滤波器
-                    % 使用精确调整的带阻滤波器
-                    f1 = 980; f2 = 2020; % 精确匹配噪声带宽
-                    app.filteredAudio = audio_processing('applyFIRFilter', app.noisyAudio, app.fs, 'stop', [f1 f2], '布莱克曼窗', 100);
-                    
-                case '单频干扰专用滤波器'
-                    % 为1500Hz单频干扰设计的专用滤波器
-                    % 使用陷波滤波器，最适合单频干扰
-                    app.filteredAudio = audio_processing('applyNotchFilter', app.noisyAudio, app.fs, 1500, 35);
+                    % 应用窗函数法FIR滤波器
+                    app.filteredAudio = audio_processing('applyFIRFilter', app.noisyAudio, app.fs, fType, cutoffFreq, windowType, filterOrder);
+                
+                case '等波纹法'
+                    % 使用Parks-McClellan算法设计滤波器
+                    try
+                        nyquist = app.fs / 2;
+                        transBand = 0.1; % 过渡带宽为截止频率的10%
+                        
+                        % 设计滤波器
+                        if strcmp(filterType, '低通')
+                            if isscalar(cutoffFreq)
+                                passBand = cutoffFreq / nyquist;
+                                stopBand = passBand + transBand;
+                                if stopBand >= 1, stopBand = 0.99; end
+                                freqs = [0 passBand stopBand 1];
+                                amps = [1 1 0 0];
+                                weights = [1 stopAtten/passRipple];
+                            end
+                        elseif strcmp(filterType, '高通')
+                            if isscalar(cutoffFreq)
+                                stopBand = cutoffFreq / nyquist - transBand;
+                                if stopBand <= 0, stopBand = 0.01; end
+                                passBand = cutoffFreq / nyquist;
+                                freqs = [0 stopBand passBand 1];
+                                amps = [0 0 1 1];
+                                weights = [stopAtten/passRipple 1];
+                            end
+                        elseif strcmp(filterType, '带通')
+                            if length(cutoffFreq) == 2
+                                stopBand1 = cutoffFreq(1) / nyquist - transBand;
+                                if stopBand1 <= 0, stopBand1 = 0.01; end
+                                passBand1 = cutoffFreq(1) / nyquist;
+                                passBand2 = cutoffFreq(2) / nyquist;
+                                stopBand2 = passBand2 + transBand;
+                                if stopBand2 >= 1, stopBand2 = 0.99; end
+                                freqs = [0 stopBand1 passBand1 passBand2 stopBand2 1];
+                                amps = [0 0 1 1 0 0];
+                                weights = [stopAtten/passRipple 1 stopAtten/passRipple];
+                            else
+                                uialert(app.UIFigure, '带通滤波器需要两个截止频率，格式：freq1, freq2', '参数错误');
+                                return;
+                            end
+                        elseif strcmp(filterType, '带阻')
+                            if length(cutoffFreq) == 2
+                                passBand1 = cutoffFreq(1) / nyquist - transBand;
+                                if passBand1 <= 0, passBand1 = 0.01; end
+                                stopBand1 = cutoffFreq(1) / nyquist;
+                                stopBand2 = cutoffFreq(2) / nyquist;
+                                passBand2 = stopBand2 + transBand;
+                                if passBand2 >= 1, passBand2 = 0.99; end
+                                freqs = [0 passBand1 stopBand1 stopBand2 passBand2 1];
+                                amps = [1 1 0 0 1 1];
+                                weights = [1 stopAtten/passRipple 1];
+                            else
+                                uialert(app.UIFigure, '带阻滤波器需要两个截止频率，格式：freq1, freq2', '参数错误');
+                                return;
+                            end
+                        end
+                        
+                        % 确保滤波器阶数适合remez算法
+                        if mod(filterOrder, 2) == 0
+                            filterOrder = filterOrder + 1; % 确保是奇数
+                        end
+                        
+                        % 使用remez算法设计等波纹滤波器
+                        b = remez(filterOrder, freqs, amps, weights);
+                        
+                        % 应用滤波器
+                        app.filteredAudio = filtfilt(b, 1, app.noisyAudio);
+                        
+                        % 确保输出信号有合理的幅度
+                        if max(abs(app.filteredAudio)) < 0.01 && max(abs(app.noisyAudio)) > 0.01
+                            scale_factor = max(abs(app.noisyAudio)) / max(abs(app.filteredAudio));
+                            app.filteredAudio = app.filteredAudio * scale_factor * 0.8;
+                        end
+                        
+                        % 归一化以防止削波
+                        if max(abs(app.filteredAudio)) > 1
+                            app.filteredAudio = app.filteredAudio / max(abs(app.filteredAudio));
+                        end
+                        
+                        % 计算滤波器频率响应用于绘图
+                        [h, w] = freqz(b, 1, 1024);
+                    catch ME
+                        uialert(app.UIFigure, ['等波纹滤波器设计错误: ' ME.message], '错误');
+                        return;
+                    end
+                
+                case '频率采样法'
+                    try
+                        N = filterOrder + 1; % 滤波器长度
+                        
+                        % 创建频率采样点
+                        f = (0:N-1)' / N; % 归一化频率点
+                        
+                        % 创建理想频率响应
+                        H = ones(N, 1); % 初始化为全1
+                        nyquist = app.fs / 2;
+                        
+                        if strcmp(filterType, '低通')
+                            if isscalar(cutoffFreq)
+                                cutoffNorm = cutoffFreq / nyquist;
+                                idx = floor(cutoffNorm * N);
+                                H(idx+1:end) = 0;
+                            end
+                        elseif strcmp(filterType, '高通')
+                            if isscalar(cutoffFreq)
+                                cutoffNorm = cutoffFreq / nyquist;
+                                idx = floor(cutoffNorm * N);
+                                H(1:idx) = 0;
+                            end
+                        elseif strcmp(filterType, '带通')
+                            if length(cutoffFreq) == 2
+                                cutoffNorm1 = cutoffFreq(1) / nyquist;
+                                cutoffNorm2 = cutoffFreq(2) / nyquist;
+                                idx1 = floor(cutoffNorm1 * N);
+                                idx2 = floor(cutoffNorm2 * N);
+                                H(1:idx1) = 0;
+                                H(idx2+1:end) = 0;
+                            else
+                                uialert(app.UIFigure, '带通滤波器需要两个截止频率，格式：freq1, freq2', '参数错误');
+                                return;
+                            end
+                        elseif strcmp(filterType, '带阻')
+                            if length(cutoffFreq) == 2
+                                cutoffNorm1 = cutoffFreq(1) / nyquist;
+                                cutoffNorm2 = cutoffFreq(2) / nyquist;
+                                idx1 = floor(cutoffNorm1 * N);
+                                idx2 = floor(cutoffNorm2 * N);
+                                H(idx1+1:idx2) = 0;
+                            else
+                                uialert(app.UIFigure, '带阻滤波器需要两个截止频率，格式：freq1, freq2', '参数错误');
+                                return;
+                            end
+                        end
+                        
+                        % 使对称共轭，以确保实数时域响应
+                        H(floor(N/2)+2:end) = conj(H(floor(N/2):-1:2));
+                        
+                        % 通过IFFT计算冲激响应
+                        h = real(ifft(H));
+                        
+                        % 应用窗函数平滑
+                        switch windowType
+                            case '矩形窗'
+                                win = rectwin(N);
+                            case '汉宁窗'
+                                win = hann(N);
+                            case '汉明窗'
+                                win = hamming(N);
+                            case '布莱克曼窗'
+                                win = blackman(N);
+                            case '凯泽窗'
+                                beta = 5; % 根据阻带衰减可调整
+                                if stopAtten > 50
+                                    beta = 0.1102 * (stopAtten - 8.7);
+                                elseif stopAtten >= 21
+                                    beta = 0.5842 * (stopAtten - 21)^0.4 + 0.07886 * (stopAtten - 21);
+                                end
+                                win = kaiser(N, beta);
+                        end
+                        
+                        h = h .* win;
+                        
+                        % 应用滤波器
+                        app.filteredAudio = filtfilt(h, 1, app.noisyAudio);
+                        
+                        % 确保输出信号有合理的幅度
+                        if max(abs(app.filteredAudio)) < 0.01 && max(abs(app.noisyAudio)) > 0.01
+                            scale_factor = max(abs(app.noisyAudio)) / max(abs(app.filteredAudio));
+                            app.filteredAudio = app.filteredAudio * scale_factor * 0.8;
+                        end
+                        
+                        % 归一化以防止削波
+                        if max(abs(app.filteredAudio)) > 1
+                            app.filteredAudio = app.filteredAudio / max(abs(app.filteredAudio));
+                        end
+                        
+                        % 计算滤波器频率响应用于绘图
+                        [h_response, w] = freqz(h, 1, 1024);
+                        h = h_response; % 用于下面的绘图
+                    catch ME
+                        uialert(app.UIFigure, ['频率采样法滤波器设计错误: ' ME.message], '错误');
+                        return;
+                    end
             end
             
             % 绘制滤波后的音频
             plotAudio(app, app.filteredAudio, app.FilteredTimeAxes, app.FilteredFreqAxes);
             
             % 绘制滤波器频率响应
-            plotFilterResponse(app, filterType, windowType, filterOrder);
+            if ~exist('h', 'var') || ~exist('w', 'var')
+                % 如果还没有计算频率响应，则调用函数计算
+                fType = getFIRTypeString(filterType);
+                [h, w] = audio_processing('getFilterResponse', fType, cutoffFreq, app.fs, windowType, filterOrder);
+            end
+            
+            % 绘制频率响应
+            plot(app.FilterResponseAxes, w*app.fs/(2*pi), 20*log10(abs(h)));
+            app.FilterResponseAxes.XLabel.String = '频率 (Hz)';
+            app.FilterResponseAxes.YLabel.String = '幅度 (dB)';
+            app.FilterResponseAxes.Title.String = [filterType, ' ', designType, ' FIR滤波器响应'];
+            
+            % 调整Y轴范围
+            if contains(filterType, '带阻')
+                app.FilterResponseAxes.YLim = [-80, 5];
+            else
+                app.FilterResponseAxes.YLim = [-100, 10];
+            end
         end
         
-        % 绘制滤波器频率响应的方法
+        % 将UI中的滤波器类型转换为audio_processing函数支持的字符串格式
+        function typeStr = getFIRTypeString(uiType)
+            switch uiType
+                case '低通'
+                    typeStr = 'low';
+                case '高通'
+                    typeStr = 'high';
+                case '带通'
+                    typeStr = 'bandpass';
+                case '带阻'
+                    typeStr = 'stop';
+                otherwise
+                    typeStr = 'low';
+            end
+        end
+        
+        % 获取噪声特定的FIR滤波器参数
+        function [filterType, cutoffFreq, filterOrder, windowType, passRipple, stopAtten] = getNoiseSpecificFIRParams(app, noiseType)
+            % 默认值
+            passRipple = 1;   % 通带波纹(dB)
+            stopAtten = 60;   % 阻带衰减(dB)
+            
+            switch noiseType
+                case '高斯白噪声'
+                    % 白噪声覆盖宽频带，使用低通滤波器保留语音主要频率
+                    filterType = '低通';
+                    cutoffFreq = 3500;  % 保留0-3.5kHz的主要语音成分
+                    filterOrder = 60;    % 使用较高阶数获得更好的阻带衰减
+                    windowType = '凯泽窗'; % 凯泽窗提供更好的阻带性能
+                    
+                case '窄带噪声(1000-2000Hz)'
+                    % 窄带噪声最适合带阻滤波器
+                    filterType = '带阻';
+                    cutoffFreq = [950 2050];  % 稍宽于噪声带宽
+                    filterOrder = 80;          % 带阻需要较高阶数提供陡峭的过渡带
+                    windowType = '布莱克曼窗'; % 布莱克曼窗提供更高的阻带衰减
+                    
+                case '单频干扰(1500Hz)'
+                    % 单频干扰最适合窄带带阻
+                    filterType = '带阻';
+                    cutoffFreq = [1450 1550];  % 窄带，集中在1500Hz周围
+                    filterOrder = 100;          % 窄带带阻需要更高阶数
+                    windowType = '凯泽窗';     % 凯泽窗提供更高的阻带衰减和可调节性
+            end
+        end
+        
+        % 绘制滤波器频率响应的方法 - 保持现有功能，但不再单独使用
         function plotFilterResponse(app, filterType, windowType, filterOrder)
             % 根据当前设置创建滤波器
             switch filterType
@@ -616,91 +853,87 @@ classdef AudioProcessingApp < matlab.apps.AppBase
             clear sound;
         end
         
-        % 添加滤波器类型改变的回调函数
+        % FIR滤波器设计方法改变回调
+        function FilterDesignChanged(app, event)
+            designType = app.FilterDesignDropDown.Value;
+            
+            % 根据设计方法调整UI控件状态
+            switch designType
+                case '窗函数法'
+                    app.WindowTypeDropDown.Enable = 'on';
+                    app.FilterRippleEdit.Enable = 'off';
+                    app.FilterAttenuationEdit.Enable = 'off';
+                case '等波纹法'
+                    app.WindowTypeDropDown.Enable = 'off';
+                    app.FilterRippleEdit.Enable = 'on';
+                    app.FilterAttenuationEdit.Enable = 'on';
+                case '频率采样法'
+                    app.WindowTypeDropDown.Enable = 'on';
+                    app.FilterRippleEdit.Enable = 'off';
+                    app.FilterAttenuationEdit.Enable = 'on';
+            end
+        end
+        
+        % FIR滤波器类型改变回调
         function FilterTypeChanged(app, event)
             filterType = app.FilterTypeDropDown.Value;
             
-            % 更新窗函数下拉框的值
+            % 更新UI提示
             switch filterType
-                case '白噪声专用滤波器'
-                    app.WindowTypeDropDown.Value = '汉明窗';
-                    app.WindowTypeDropDown.Enable = 'off'; % 锁定窗函数选择
-                case '窄带噪声专用滤波器'
-                    app.WindowTypeDropDown.Value = '布莱克曼窗';
-                    app.WindowTypeDropDown.Enable = 'off'; % 锁定窗函数选择
-                case '单频干扰专用滤波器'
-                    app.WindowTypeDropDown.Enable = 'off'; % 锁定窗函数选择
-                otherwise
-                    app.WindowTypeDropDown.Enable = 'on';  % 解锁窗函数选择
+                case {'低通', '高通'}
+                    app.FilterCutoffEdit.Tooltip = '单个截止频率(Hz)';
+                case {'带通', '带阻'}
+                    app.FilterCutoffEdit.Tooltip = '两个截止频率，格式：freq1, freq2 (Hz)';
             end
         end
         
-        % IIR滤波器类型改变回调
-        function IIRFilterTypeChanged(app, event)
-            filterType = app.IIRFilterTypeDropDown.Value;
-            
-            % 更新UI控件状态
-            switch filterType
-                case '巴特沃斯'
-                    app.IIRRippleEdit.Enable = 'off';
-                    app.IIRAttenuationEdit.Enable = 'off';
-                case '切比雪夫I型'
-                    app.IIRRippleEdit.Enable = 'on';
-                    app.IIRAttenuationEdit.Enable = 'off';
-                case '切比雪夫II型'
-                    app.IIRRippleEdit.Enable = 'off';
-                    app.IIRAttenuationEdit.Enable = 'on';
-                case '椭圆'
-                    app.IIRRippleEdit.Enable = 'on';
-                    app.IIRAttenuationEdit.Enable = 'on';
-            end
-        end
-        
-        % IIR滤波器噪声类型改变回调
-        function IIRNoiseTypeChanged(app, event)
-            noiseType = app.IIRNoiseTypeDropDown.Value;
+        % FIR滤波器噪声类型改变回调
+        function FilterNoiseTypeChanged(app, event)
+            noiseType = app.FilterNoiseTypeDropDown.Value;
             
             % 根据预设类型调整界面
             if strcmp(noiseType, '自定义')
-                app.IIRFilterTypeDropDown.Enable = 'on';
-                app.IIRDesignDropDown.Enable = 'on';
-                app.IIROrderEdit.Enable = 'on';
-                app.IIRCutoffEdit.Enable = 'on';
-                % 根据当前选择的滤波器类型启用/禁用相关参数
-                IIRFilterTypeChanged(app, []);
+                app.FilterTypeDropDown.Enable = 'on';
+                app.FilterDesignDropDown.Enable = 'on';
+                app.FilterOrderEdit.Enable = 'on';
+                app.FilterCutoffEdit.Enable = 'on';
+                % 根据当前选择的设计方法启用/禁用相关参数
+                FilterDesignChanged(app, []);
             else
                 % 预设类型，锁定参数设置
-                app.IIRFilterTypeDropDown.Enable = 'off';
-                app.IIRDesignDropDown.Enable = 'off';
-                app.IIROrderEdit.Enable = 'off';
-                app.IIRCutoffEdit.Enable = 'off';
-                app.IIRRippleEdit.Enable = 'off';
-                app.IIRAttenuationEdit.Enable = 'off';
+                app.FilterTypeDropDown.Enable = 'off';
+                app.FilterDesignDropDown.Enable = 'off';
+                app.FilterOrderEdit.Enable = 'off';
+                app.FilterCutoffEdit.Enable = 'off';
+                app.FilterRippleEdit.Enable = 'off';
+                app.FilterAttenuationEdit.Enable = 'off';
+                app.WindowTypeDropDown.Enable = 'off';
                 
                 % 自动设置滤波器类型
-                [designType, cutoffFreq, filterOrder, passRipple, stopAtten] = getNoiseSpecificIIRParams(app, noiseType);
+                [filterType, cutoffFreq, filterOrder, windowType, passRipple, stopAtten] = getNoiseSpecificFIRParams(app, noiseType);
                 
                 % 更新UI显示
-                app.IIRDesignDropDown.Value = designType;
-                app.IIROrderEdit.Value = filterOrder;
-                app.IIRRippleEdit.Value = passRipple;
-                app.IIRAttenuationEdit.Value = stopAtten;
+                app.FilterTypeDropDown.Value = filterType;
+                app.FilterOrderEdit.Value = filterOrder;
+                app.WindowTypeDropDown.Value = windowType;
+                app.FilterRippleEdit.Value = passRipple;
+                app.FilterAttenuationEdit.Value = stopAtten;
                 
                 % 显示截止频率
                 if isscalar(cutoffFreq)
-                    app.IIRCutoffEdit.Value = num2str(cutoffFreq);
+                    app.FilterCutoffEdit.Value = num2str(cutoffFreq);
                 else
-                    app.IIRCutoffEdit.Value = [num2str(cutoffFreq(1)), ', ', num2str(cutoffFreq(2))];
+                    app.FilterCutoffEdit.Value = [num2str(cutoffFreq(1)), ', ', num2str(cutoffFreq(2))];
                 end
                 
-                % 根据噪声类型自动选择最佳滤波器
+                % 根据噪声类型自动选择最佳设计方法
                 switch noiseType
                     case '高斯白噪声'
-                        app.IIRFilterTypeDropDown.Value = '巴特沃斯';
+                        app.FilterDesignDropDown.Value = '窗函数法';
                     case '窄带噪声(1000-2000Hz)'
-                        app.IIRFilterTypeDropDown.Value = '椭圆';
+                        app.FilterDesignDropDown.Value = '等波纹法';
                     case '单频干扰(1500Hz)'
-                        app.IIRFilterTypeDropDown.Value = '椭圆';
+                        app.FilterDesignDropDown.Value = '频率采样法';
                 end
             end
         end
@@ -795,45 +1028,82 @@ classdef AudioProcessingApp < matlab.apps.AppBase
             app.NoiseFreqAxes = uiaxes(app.NoisePanel);
             app.NoiseFreqAxes.Position = [20, 20, 920, 270];
             
-            % 创建滤波面板和组件
+            % 创建滤波面板和组件 - 重新设计以匹配IIR滤波器面板布局
             app.FilterPanel = uipanel(app.FilteringTab);
             app.FilterPanel.Position = [10, 10, 960, 640];
             
+            % FIR滤波器类型和设计选择
             app.FilterTypeDropDown = uidropdown(app.FilterPanel);
-            app.FilterTypeDropDown.Items = {'低通滤波', '高通滤波', '带阻滤波', ...
-                                           '白噪声专用滤波器', '窄带噪声专用滤波器', '单频干扰专用滤波器'};
-            app.FilterTypeDropDown.Position = [20, 600, 150, 30];
-            app.FilterTypeDropDown.Value = '低通滤波';
+            app.FilterTypeDropDown.Items = {'低通', '高通', '带通', '带阻'};
+            app.FilterTypeDropDown.Position = [20, 600, 120, 30];
+            app.FilterTypeDropDown.Value = '低通';
             app.FilterTypeDropDown.ValueChangedFcn = createCallbackFcn(app, @FilterTypeChanged, true);
             
+            app.FilterDesignDropDown = uidropdown(app.FilterPanel);
+            app.FilterDesignDropDown.Items = {'窗函数法', '等波纹法', '频率采样法'};
+            app.FilterDesignDropDown.Position = [150, 600, 120, 30];
+            app.FilterDesignDropDown.Value = '窗函数法';
+            app.FilterDesignDropDown.ValueChangedFcn = createCallbackFcn(app, @FilterDesignChanged, true);
+            
+            % FIR滤波器参数设置
+            uilabel(app.FilterPanel, 'Text', '阶数:', 'Position', [280, 600, 40, 30]);
+            app.FilterOrderEdit = uieditfield(app.FilterPanel, 'numeric', 'Position', [320, 600, 40, 30], 'Value', 50);
+            
+            uilabel(app.FilterPanel, 'Text', '截止频率(Hz):', 'Position', [370, 600, 90, 30]);
+            app.FilterCutoffEdit = uieditfield(app.FilterPanel, 'text', 'Position', [460, 600, 80, 30], 'Value', '1000');
+            app.FilterCutoffEdit.Tooltip = '单个截止频率(Hz)';
+            
+            uilabel(app.FilterPanel, 'Text', '通带波纹(dB):', 'Position', [550, 600, 90, 30]);
+            app.FilterRippleEdit = uieditfield(app.FilterPanel, 'numeric', 'Position', [640, 600, 40, 30], 'Value', 1);
+            app.FilterRippleEdit.Enable = 'off';
+            
+            uilabel(app.FilterPanel, 'Text', '阻带衰减(dB):', 'Position', [690, 600, 90, 30]);
+            app.FilterAttenuationEdit = uieditfield(app.FilterPanel, 'numeric', 'Position', [780, 600, 40, 30], 'Value', 60);
+            app.FilterAttenuationEdit.Enable = 'off';
+            
+            % 添加窗函数选择
+            uilabel(app.FilterPanel, 'Text', '窗函数:', 'Position', [20, 560, 60, 30]);
             app.WindowTypeDropDown = uidropdown(app.FilterPanel);
-            app.WindowTypeDropDown.Items = {'巴特利特窗', '汉宁窗', '汉明窗', '布莱克曼窗', '凯泽窗'};
-            app.WindowTypeDropDown.Position = [180, 600, 150, 30];
+            app.WindowTypeDropDown.Items = {'矩形窗', '汉宁窗', '汉明窗', '布莱克曼窗', '凯泽窗'};
+            app.WindowTypeDropDown.Position = [80, 560, 120, 30];
             app.WindowTypeDropDown.Value = '汉明窗';
             
+            % 噪声类型预设
+            uilabel(app.FilterPanel, 'Text', '噪声类型预设:', 'Position', [210, 560, 90, 30]);
+            app.FilterNoiseTypeDropDown = uidropdown(app.FilterPanel);
+            app.FilterNoiseTypeDropDown.Items = {'自定义', '高斯白噪声', '窄带噪声(1000-2000Hz)', '单频干扰(1500Hz)'};
+            app.FilterNoiseTypeDropDown.Position = [310, 560, 200, 30];
+            app.FilterNoiseTypeDropDown.Value = '自定义';
+            app.FilterNoiseTypeDropDown.ValueChangedFcn = createCallbackFcn(app, @FilterNoiseTypeChanged, true);
+            
+            % 操作按钮
             app.FilterButton = uibutton(app.FilterPanel, 'push');
-            app.FilterButton.Position = [340, 600, 100, 30];
-            app.FilterButton.Text = '滤波';
+            app.FilterButton.Position = [520, 560, 100, 30];
+            app.FilterButton.Text = '应用滤波器';
             app.FilterButton.ButtonPushedFcn = createCallbackFcn(app, @FilterButtonPushed, true);
             
             app.PlayFilteredButton = uibutton(app.FilterPanel, 'push');
-            app.PlayFilteredButton.Position = [450, 600, 100, 30];
+            app.PlayFilteredButton.Position = [630, 560, 100, 30];
             app.PlayFilteredButton.Text = '播放';
             app.PlayFilteredButton.ButtonPushedFcn = createCallbackFcn(app, @PlayFilteredButtonPushed, true);
             
             app.StopFilteredButton = uibutton(app.FilterPanel, 'push');
-            app.StopFilteredButton.Position = [560, 600, 100, 30];
+            app.StopFilteredButton.Position = [740, 560, 100, 30];
             app.StopFilteredButton.Text = '停止播放';
             app.StopFilteredButton.ButtonPushedFcn = createCallbackFcn(app, @StopFilteredButtonPushed, true);
             
+            % 绘图区域
             app.FilterResponseAxes = uiaxes(app.FilterPanel);
-            app.FilterResponseAxes.Position = [20, 430, 920, 160];
+            app.FilterResponseAxes.Position = [20, 430, 920, 120];
+            app.FilterResponseAxes.Title.String = 'FIR滤波器频率响应';
             
             app.FilteredTimeAxes = uiaxes(app.FilterPanel);
             app.FilteredTimeAxes.Position = [20, 230, 920, 190];
+            app.FilteredTimeAxes.Title.String = '时域波形';
             
             app.FilteredFreqAxes = uiaxes(app.FilterPanel);
             app.FilteredFreqAxes.Position = [20, 20, 920, 190];
+            app.FilteredFreqAxes.Title.String = '频谱图';
             
             % 创建IIR面板和组件
             app.IIRPanel = uipanel(app.IIRTab);
