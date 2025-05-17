@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>音频信号处理应用帮助</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 24px; color: #222; }
+        h1, h2, h3 { color: #005fae; }
+        ul, ol { margin-left: 1.5em; }
+        .section { margin-bottom: 28px; }
+        code { background: #f5f5f5; padding: 2px 6px; border-radius: 3px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 10px;}
+        th, td { border: 1px solid #ccc; padding: 6px 10px; }
+        th { background: #f0f6fa; }
+    </style>
+</head>
+<body>
+    <h1>音频信号处理应用帮助文档</h1>
+
+    <div class="section">
+        <h2>1. 应用简介</h2>
+        <p>
+            本应用为MATLAB开发的音频信号处理工具，支持音频加载、噪声添加、FIR/IIR滤波、自适应去噪等功能，适用于音频信号分析与处理实验。
+        </p>
+    </div>
+
+    <div class="section">
+        <h2>2. 功能模块</h2>
+        <ul>
+            <li><b>原始音频</b>：加载并浏览音频文件，显示时域和频域图。</li>
+            <li><b>带噪音频</b>：为音频添加不同类型噪声，便于后续滤波实验。</li>
+            <li><b>FIR滤波器</b>：支持窗函数法、等波纹法、频率采样法设计FIR滤波器，参数可自定义或按噪声类型预设。</li>
+            <li><b>IIR滤波器</b>：支持巴特沃斯、切比雪夫I/II型、椭圆等IIR滤波器设计。</li>
+            <li><b>高级滤波处理</b>：支持LMS自适应滤波、小波去噪、陷波滤波等算法。</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>3. 操作流程</h2>
+        <ol>
+            <li>在“原始音频”选项卡点击“加载音频”，支持<code>.wav</code>和<code>.mp3</code>格式。</li>
+            <li>切换到“带噪音频”，选择噪声类型并点击“添加噪声”。</li>
+            <li>在“FIR滤波器”或“IIR滤波器”中选择设计方法、参数，点击“应用滤波器”。</li>
+            <li>如需自适应处理，切换到“高级滤波处理”并选择算法后点击“应用”。</li>
+            <li>各模块均可播放/停止音频，查看时域和频谱图。</li>
+        </ol>
+    </div>
+
+    <div class="section">
+        <h2>4. 参数说明</h2>
+        <ul>
+            <li><b>噪声类型</b>：高斯白噪声、窄带噪声(1000-2000Hz)、单频干扰(1500Hz)。</li>
+            <li><b>FIR/IIR参数</b>：阶数、截止频率、通带波纹、阻带衰减、窗函数类型等。</li>
+            <li><b>自适应算法</b>：LMS步长、滤波器长度、小波类型与层数、陷波中心频率等。</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>5. 常见问题与解决方法</h2>
+        <table>
+            <tr>
+                <th>问题</th>
+                <th>原因</th>
+                <th>解决方法</th>
+            </tr>
+            <tr>
+                <td>无法加载音频</td>
+                <td>文件格式不支持或损坏</td>
+                <td>请使用标准<code>.wav</code>或<code>.mp3</code>文件</td>
+            </tr>
+            <tr>
+                <td>滤波效果不明显</td>
+                <td>参数设置不当</td>
+                <td>调整截止频率、阶数、窗函数等参数</td>
+            </tr>
+            <tr>
+                <td>应用卡顿或慢</td>
+                <td>音频文件过大</td>
+                <td>建议测试时选用较短音频片段</td>
+            </tr>
+            <tr>
+                <td>部分按钮不可用</td>
+                <td>未按流程操作</td>
+                <td>请先加载音频并依次完成前置步骤</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="section">
+        <h2>6. 其他说明</h2>
+        <ul>
+            <li>所有滤波器参数均可自定义，部分参数可根据噪声类型自动推荐。</li>
+            <li>如遇异常报错，可重启应用或检查MATLAB工具箱安装。</li>
+            <li>本应用仅供教学与实验用途。</li>
+        </ul>
+    </div>
+</body>
+</html>
