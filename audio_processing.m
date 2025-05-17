@@ -223,7 +223,7 @@ function filtered = applyLMSFilter(noisy, desired, mu, filterOrder)
         
         if freqIndex > 1 && freqIndex < 50 % 可能是单频干扰
             % 创建相位适配的正弦参考
-            fs = 44100; % 假设采样率
+            fs = 48000; % 假设采样率
             f = (freqIndex-1) * (fs/N);
             t = (0:N-1)'/fs;
             desired = sin(2*pi*f*t);
