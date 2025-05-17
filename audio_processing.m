@@ -197,7 +197,7 @@ function [h, w] = getFilterResponse(type, cutoff, fs, window_type)
 end
 
 function filtered = applyLMSFilter(noisy, desired, mu, filterOrder)
-    % 应用自定义LMS自适应滤波器，基于博客实现
+    % 应用自定义LMS高级滤波处理器，基于博客实现
     % noisy: 带噪声信号
     % desired: 期望信号（若为空，则自动生成参考信号）
     % mu: 步长参数（若为空，则使用默认值0.01）

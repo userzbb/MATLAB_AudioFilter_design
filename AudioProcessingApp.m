@@ -56,7 +56,7 @@ classdef AudioProcessingApp < matlab.apps.AppBase
         noisyAudio         % 带噪音频数据
         currentNoiseType   % 当前噪声类型
         filteredAudio      % 滤波后的音频数据
-        adaptiveAudio      % 自适应滤波后的音频
+        adaptiveAudio      % 高级滤波处理后的音频
     end
     
     methods (Access = private)
@@ -257,7 +257,7 @@ classdef AudioProcessingApp < matlab.apps.AppBase
             end
         end
         
-        % 应用自适应滤波的方法
+        % 应用高级滤波处理的方法
         function applyAdaptiveFiltering(app)
             if isempty(app.noisyAudio)
                 uialert(app.UIFigure, '请先向音频添加噪声。', '无噪声音频');
@@ -286,7 +286,7 @@ classdef AudioProcessingApp < matlab.apps.AppBase
                     % 调用自定义LMS算法
                     app.adaptiveAudio = audio_processing('applyLMSFilter', app.noisyAudio, [], mu, filterOrder);
                     
-                    titleStr = sprintf('LMS自适应滤波 (阶数:%d, 步长:%.4f)', filterOrder, mu);
+                    titleStr = sprintf('LMS高级滤波处理 (阶数:%d, 步长:%.4f)', filterOrder, mu);
                     
                 case '小波去噪'
                     % 应用小波去噪
@@ -307,7 +307,7 @@ classdef AudioProcessingApp < matlab.apps.AppBase
                     titleStr = '陷波滤波结果';
             end
             
-            % 绘制自适应滤波后的音频
+            % 绘制高级滤波处理后的音频
             plotAudio(app, app.adaptiveAudio, app.AdaptiveTimeAxes, app.AdaptiveFreqAxes);
             app.AdaptiveTimeAxes.Title.String = titleStr;
         end
@@ -426,10 +426,10 @@ classdef AudioProcessingApp < matlab.apps.AppBase
             app.NoiseTab.Title = '带噪音频';
             
             app.FilteringTab = uitab(app.TabGroup);
-            app.FilteringTab.Title = '滤波处理';
+            app.FilteringTab.Title = 'FIR滤波器';
             
             app.AdaptiveTab = uitab(app.TabGroup);
-            app.AdaptiveTab.Title = '自适应滤波';
+            app.AdaptiveTab.Title = '高级滤波处理';
             
             % 创建原始音频面板和组件
             app.OriginalPanel = uipanel(app.OriginalTab);
