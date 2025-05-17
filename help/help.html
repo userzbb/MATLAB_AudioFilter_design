@@ -2,133 +2,97 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>音频处理应用程序帮助文档</title>
+    <title>音频信号处理应用帮助</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            margin: 20px;
-            color: #333;
-        }
-        h1, h2, h3 {
-            color: #0066cc;
-        }
-        .section {
-            margin-bottom: 30px;
-        }
-        code {
-            background-color: #f5f5f5;
-            padding: 2px 5px;
-            border-radius: 3px;
-            font-family: Consolas, monospace;
-        }
-        table {
-            border-collapse: collapse;
-            width: 100%;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-        th {
-            background-color: #f2f2f2;
-        }
+        body { font-family: Arial, sans-serif; margin: 24px; color: #222; }
+        h1, h2, h3 { color: #005fae; }
+        ul, ol { margin-left: 1.5em; }
+        .section { margin-bottom: 28px; }
+        code { background: #f5f5f5; padding: 2px 6px; border-radius: 3px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 10px;}
+        th, td { border: 1px solid #ccc; padding: 6px 10px; }
+        th { background: #f0f6fa; }
     </style>
 </head>
 <body>
-    <h1>音频处理应用程序使用说明</h1>
-    
+    <h1>音频信号处理应用帮助文档</h1>
+
     <div class="section">
-        <h2>1. 简介</h2>
-        <p>音频处理应用程序是一个用于处理音频信号的工具，可以添加不同类型的噪声并应用各种滤波算法进行去噪。</p>
+        <h2>1. 应用简介</h2>
+        <p>
+            本应用为MATLAB开发的音频信号处理工具，支持音频加载、噪声添加、FIR/IIR滤波、自适应去噪等功能，适用于音频信号分析与处理实验。
+        </p>
     </div>
-    
+
     <div class="section">
-        <h2>2. 界面概述</h2>
-        <p>应用程序分为四个主要选项卡：</p>
+        <h2>2. 功能模块</h2>
         <ul>
-            <li><strong>原始音频</strong> - 加载和查看原始音频信号</li>
-            <li><strong>带噪音频</strong> - 给音频添加噪声</li>
-            <li><strong>FIR滤波器</strong> - 应用FIR滤波器进行处理</li>
-            <li><strong>高级滤波处理</strong> - 应用高级滤波处理算法</li>
+            <li><b>原始音频</b>：加载并浏览音频文件，显示时域和频域图。</li>
+            <li><b>带噪音频</b>：为音频添加不同类型噪声，便于后续滤波实验。</li>
+            <li><b>FIR滤波器</b>：支持窗函数法、等波纹法、频率采样法设计FIR滤波器，参数可自定义或按噪声类型预设。</li>
+            <li><b>IIR滤波器</b>：支持巴特沃斯、切比雪夫I/II型、椭圆等IIR滤波器设计。</li>
+            <li><b>高级滤波处理</b>：支持LMS自适应滤波、小波去噪、陷波滤波等算法。</li>
         </ul>
     </div>
-    
+
     <div class="section">
-        <h2>3. 基本操作流程</h2>
+        <h2>3. 操作流程</h2>
         <ol>
-            <li>在"原始音频"选项卡中加载音频文件（.wav或.mp3格式）</li>
-            <li>切换到"带噪音频"选项卡，选择噪声类型并添加噪声</li>
-            <li>在"FIR滤波器"选项卡中，选择滤波器类型和窗口类型进行滤波</li>
-            <li>在"高级滤波处理"选项卡中，选择自适应算法进行更高级的处理</li>
+            <li>在“原始音频”选项卡点击“加载音频”，支持<code>.wav</code>和<code>.mp3</code>格式。</li>
+            <li>切换到“带噪音频”，选择噪声类型并点击“添加噪声”。</li>
+            <li>在“FIR滤波器”或“IIR滤波器”中选择设计方法、参数，点击“应用滤波器”。</li>
+            <li>如需自适应处理，切换到“高级滤波处理”并选择算法后点击“应用”。</li>
+            <li>各模块均可播放/停止音频，查看时域和频谱图。</li>
         </ol>
     </div>
-    
+
     <div class="section">
-        <h2>4. 功能详解</h2>
-        
-        <h3>4.1 噪声类型</h3>
+        <h2>4. 参数说明</h2>
         <ul>
-            <li><strong>高斯白噪声</strong> - 在整个频带上均匀分布的随机噪声</li>
-            <li><strong>窄带噪声(1000-2000Hz)</strong> - 集中在特定频率范围内的噪声</li>
-            <li><strong>单频干扰(1500Hz)</strong> - 特定频率(1500Hz)的正弦干扰</li>
-        </ul>
-        
-        <h3>4.2 滤波器类型</h3>
-        <ul>
-            <li><strong>低通滤波</strong> - 允许低频信号通过，抑制高频信号</li>
-            <li><strong>高通滤波</strong> - 允许高频信号通过，抑制低频信号</li>
-            <li><strong>带阻滤波</strong> - 抑制特定频带的信号</li>
-        </ul>
-        
-        <h3>4.3 窗函数类型</h3>
-        <ul>
-            <li><strong>巴特利特窗</strong> - 一种简单的三角窗</li>
-            <li><strong>汉宁窗</strong> - 一种改进的余弦窗</li>
-            <li><strong>汉明窗</strong> - 改进的汉宁窗，旁瓣更低</li>
-            <li><strong>布莱克曼窗</strong> - 旁瓣衰减更快的窗</li>
-            <li><strong>凯泽窗</strong> - 可调参数的窗函数</li>
-        </ul>
-        
-        <h3>4.4 自适应算法</h3>
-        <ul>
-            <li><strong>LMS算法</strong> - 最小均方算法，自适应估计信号</li>
-            <li><strong>小波去噪</strong> - 基于小波变换的信号去噪</li>
-            <li><strong>陷波滤波</strong> - 专门去除特定频率干扰</li>
+            <li><b>噪声类型</b>：高斯白噪声、窄带噪声(1000-2000Hz)、单频干扰(1500Hz)。</li>
+            <li><b>FIR/IIR参数</b>：阶数、截止频率、通带波纹、阻带衰减、窗函数类型等。</li>
+            <li><b>自适应算法</b>：LMS步长、滤波器长度、小波类型与层数、陷波中心频率等。</li>
         </ul>
     </div>
-    
+
     <div class="section">
-        <h2>5. 性能考虑</h2>
-        <p>处理大型音频文件可能需要较长时间。应用程序会自动将音频限制在10秒内以提高性能。</p>
-    </div>
-    
-    <div class="section">
-        <h2>6. 故障排除</h2>
+        <h2>5. 常见问题与解决方法</h2>
         <table>
             <tr>
                 <th>问题</th>
-                <th>可能原因</th>
-                <th>解决方案</th>
+                <th>原因</th>
+                <th>解决方法</th>
             </tr>
             <tr>
-                <td>加载音频失败</td>
-                <td>文件格式不支持</td>
-                <td>确保使用.wav或.mp3格式</td>
+                <td>无法加载音频</td>
+                <td>文件格式不支持或损坏</td>
+                <td>请使用标准<code>.wav</code>或<code>.mp3</code>文件</td>
             </tr>
             <tr>
                 <td>滤波效果不明显</td>
-                <td>滤波器参数不合适</td>
-                <td>尝试调整滤波器类型或滤波器频率设置</td>
+                <td>参数设置不当</td>
+                <td>调整截止频率、阶数、窗函数等参数</td>
             </tr>
             <tr>
-                <td>应用运行缓慢</td>
+                <td>应用卡顿或慢</td>
                 <td>音频文件过大</td>
-                <td>使用较短的音频片段测试</td>
+                <td>建议测试时选用较短音频片段</td>
+            </tr>
+            <tr>
+                <td>部分按钮不可用</td>
+                <td>未按流程操作</td>
+                <td>请先加载音频并依次完成前置步骤</td>
             </tr>
         </table>
+    </div>
+
+    <div class="section">
+        <h2>6. 其他说明</h2>
+        <ul>
+            <li>所有滤波器参数均可自定义，部分参数可根据噪声类型自动推荐。</li>
+            <li>如遇异常报错，可重启应用或检查MATLAB工具箱安装。</li>
+            <li>本应用仅供教学与实验用途。</li>
+        </ul>
     </div>
 </body>
 </html>
