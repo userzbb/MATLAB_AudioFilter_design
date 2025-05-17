@@ -1,11 +1,14 @@
 # 音频信号处理应用程序
 
+
 ## 项目简介
 
-1. 本项目是一个基于 MATLAB 的音频信号处理应用程序，旨在设计一个直观的界面，用于加载音频文件、添加噪声、应用各种滤波器（FIR、IIR、自适应滤波等）
-2. 当前版本中关于自适应滤波算法的部分还有待完善，目前只实现了较为简单的LMS算法。
-3. 在`beta`分支中 参考 <https://github.com/LiXirong/AdaptiveFilterandActiveNoiseCancellation设计了自适应滤波算法，包括> LMS, NLMS,
+- 项目仓库 <https://github.com/userzbb/AudioFilter_design> （推荐使用校园网`UJN-Campus`或者`代理`访问该仓库）
+- 本项目是一个基于 MATLAB 的音频信号处理应用程序，旨在设计一个直观的界面，用于加载音频文件、添加噪声、应用各种滤波器（FIR、IIR、自适应滤波等）
+- 当前版本中关于自适应滤波算法的部分还有待完善，目前只实现了较为简单的LMS算法。
+- 在`beta`分支中 参考 <https://github.com/LiXirong/AdaptiveFilterandActiveNoiseCancellation>设计了自适应滤波算法，包括 LMS, NLMS,
 RLS 但效果并不理想
+
 
 ---
 
@@ -178,7 +181,10 @@ launch_audio_app
 欢迎对本项目提出改进建议或提交代码贡献。请通过以下方式联系我们：
 
 - 代码仓库:  <https://github.com/userzbb/AudioFilter_design>
-- 邮箱：  <zizimiku@outlook.com>
+- 邮箱：  
+  - <zizimiku@outlook.com>
+  - <202331223125@stu.ujn.edu.cn>
+  
 - QQ: 326196124
 - GitHub Issues
 
