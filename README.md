@@ -101,15 +101,9 @@ RLS 但效果并不理想
 git clone <项目仓库地址>
 ```
 
-### 3. 添加路径
 
-在 MATLAB 中，将项目目录添加到 MATLAB 路径：
 
-```matlab
-addpath(genpath('g:\zizim\Documents\code\audio_release\alpha_2'));
-```
-
-### 4. 启动应用
+### 3. 启动应用
 
 运行以下脚本启动应用程序：
 
@@ -125,6 +119,9 @@ launch_audio_app
 
 - 在“原始音频”选项卡中点击“加载音频”按钮。
 - 支持 `.wav` 和 `.mp3` 格式的音频文件。
+- 音频文件在`wave_audio`文件夹中
+  - `wave_audio`中有两种音频文件，建议选择`海阔天空.wav`
+- 加载音频文件之后当前窗口可能会最小化，需要在**任务栏**中选中使窗口最大化
 
 ### 2. 添加噪声
 
