@@ -504,14 +504,14 @@ classdef AudioProcessingApp < matlab.apps.AppBase
                 case '高斯白噪声'
                     % 白噪声覆盖宽频带，使用低通滤波器保留语音主要频率
                     filterType = '低通';
-                    cutoffFreq = 3500;  % 保留0-3.5kHz的主要语音成分
+                    cutoffFreq = 1200;  % 保留0-3.5kHz的主要语音成分
                     filterOrder = 60;    % 使用较高阶数获得更好的阻带衰减
                     windowType = '凯泽窗'; % 凯泽窗提供更好的阻带性能
                     
                 case '窄带噪声(1000-2000Hz)'
                     % 窄带噪声最适合带阻滤波器
                     filterType = '带阻';
-                    cutoffFreq = [1500 1800];  % 稍宽于噪声带宽
+                    cutoffFreq = [1300 1800];  % 稍宽于噪声带宽
                     filterOrder = 80;          % 带阻需要较高阶数提供陡峭的过渡带
                     windowType = '布莱克曼窗'; % 布莱克曼窗提供更高的阻带衰减
                     
@@ -539,17 +539,17 @@ classdef AudioProcessingApp < matlab.apps.AppBase
                     titleStr = '高通滤波器频率响应';
                     
                 case '带阻滤波'
-                    f1 = 950; f2 = 2050; % 示例，应与applyFilter匹配
+                    f1 = 1200; f2 = 1850; % 示例，应与applyFilter匹配
                     [h, w] = audio_processing('getFilterResponse', 'stop', [f1 f2], app.fs, windowType, filterOrder);
                     titleStr = '带阻滤波器频率响应';
                     
                 case '白噪声专用滤波器'
-                    cutoff = 3500;
+                    cutoff = 1000;
                     [h, w] = audio_processing('getFilterResponse', 'low', cutoff, app.fs, '汉明窗', 60);
                     titleStr = '白噪声专用滤波器频率响应';
                     
                 case '窄带噪声专用滤波器'
-                    f1 = 980; f2 = 2020;
+                    f1 = 1200; f2 = 1850;
                     [h, w] = audio_processing('getFilterResponse', 'stop', [f1 f2], app.fs, '布莱克曼窗', 100);
                     titleStr = '窄带噪声专用滤波器频率响应';
                     
@@ -718,13 +718,13 @@ classdef AudioProcessingApp < matlab.apps.AppBase
                 case '高斯白噪声'
                     % 白噪声覆盖宽频带，使用低通滤波器保留语音主要频率
                     designType = '低通';
-                    cutoffFreq = 3500;  % 保留0-3.5kHz的主要语音成分
+                    cutoffFreq = 1200;  % 保留0-3.5kHz的主要语音成分
                     filterOrder = 4;     % 降低阶数以确保稳定性
                     
                 case '窄带噪声(1000-2000Hz)'
                     % 窄带噪声最适合带阻滤波器
                     designType = '带阻';
-                    cutoffFreq = [950 2050];  % 稍宽于噪声带宽
+                    cutoffFreq = [1150 1850];  % 稍宽于噪声带宽
                     filterOrder = 4;           % 带阻通常不需要太高阶数
                     
                 case '单频干扰(1500Hz)'

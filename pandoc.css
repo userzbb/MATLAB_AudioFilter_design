@@ -5,14 +5,14 @@
 html {
   font-size: 175%;
   overflow-y: scroll;
-  -webkit-text-size-adjust: 100%;
-  -ms-text-size-adjust: 100%;
+  -webkit-text-size-adjust: 175%;
+  -ms-text-size-adjust: 175%;
 }
 
 body {
   color: #444;
   font-family: Georgia, Palatino, 'Palatino Linotype', Times, 'Times New Roman', serif;
-  font-size: 12px;
+  font-size: 22px;
   line-height: 1.7;
   padding: 1em;
   padding-right: 220px; /* 为目录留出空间 */
@@ -258,7 +258,7 @@ table td {
   top: 50%;
   transform: translateY(-50%);
   right: 5%;
-  width: 200px;
+  width: 240px;
   background: #fefefe; /* 与正文相同背景 */
   color: #444;          /* 与正文相同字体色 */
   padding: 10px;
